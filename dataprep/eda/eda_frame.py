@@ -1,6 +1,7 @@
 """Defines EDAFrame."""
 
 from functools import reduce
+from logging import ERROR
 from math import ceil
 from typing import Any, List, Optional, Sequence, Tuple, Union, cast, Dict
 from collections import Counter
@@ -9,10 +10,20 @@ import warnings
 import dask.array as da
 import dask.dataframe as dd
 import numpy as np
+from numpy.core.numerictypes import issubdtype
+from numpy.lib.arraysetops import isin
 import pandas as pd
 import pandas._libs.missing as libmissing
 
-from .dtypes_v2 import NUMERICAL_DTYPES, DType, DTypeDef, detect_dtype, Nominal, GeoGraphy
+from .dtypes_v2 import (
+    NUMERICAL_DTYPES,
+    DType,
+    DTypeDef,
+    detect_dtype,
+    Nominal,
+    GeoGraphy,
+    Continuous,
+)
 
 DataFrame = Union[pd.DataFrame, dd.DataFrame, "EDAFrame"]
 
@@ -108,6 +119,11 @@ class EDAFrame:
         for col in ddf.columns:
             if isinstance(self._eda_dtypes[col], (Nominal, GeoGraphy)):
                 ddf[col] = ddf[col].apply(_to_str_if_not_na, meta=(col, "object"))
+            elif isinstance(self._eda_dtypes[col], Continuous):
+                if issubclass(type(ddf[col].dtype), pd.api.extensions.ExtensionDtype):
+                    ddf[col] = ddf[col].astype(
+                        ddf[col].dtype.type
+                    )  # transform pandas extension type to the numpy type, to avoid computation issue of pandas type, e.g., #733.
 
         self._ddf = ddf.persist()
         self._columns = self._ddf.columns
@@ -252,11 +268,11 @@ class EDAFrame:
         df._str_col_cache = str_col_cache
         df._nulls_cnt = nulls_cnt
 
-        if df.shape[1] != 0:
-            # coerce the array to it's minimal type
-            dtype = reduce(np.promote_types, df.dtypes.values)
-            if df._values.dtype != dtype:
-                df._values = df._values.astype(dtype)
+        # if df.shape[1] != 0:
+        #     # coerce the array to it's minimal type
+        #     dtype = reduce(np.promote_types, df.dtypes.values)
+        #     if df._values.dtype != dtype:
+        #         df._values = df._values.astype(dtype)
 
         return df
 
