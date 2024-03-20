@@ -274,7 +274,6 @@ def _format_phone(
         ext_num = f" ext. {ext_num}" if ext_num else ""
         result = f"{area_code}{office_code}-{station_code}{ext_num}"
     elif output_format == "e164":  # +NPANXXXXXX
-        print(country_code)
         if country_code is None and area_code:
             country_code = "+1"
         else:
